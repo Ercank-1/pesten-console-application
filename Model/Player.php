@@ -2,14 +2,16 @@
 
 class Player
 {
-    private string $name;
+    private string $name = '';
     private array $cards = [];
+    private Card $playedCard;
 
     public function setCard(Card $card) {
         $this->cards[] = $card;
     }
 
-    public function setName(string $name) {
+    public function setName(string $name)
+    {
         $this->name = $name;
     }
 
@@ -61,6 +63,16 @@ class Player
                 return $key;
             }
         }
+    }
+
+    public function setPlayedCard(Card $card)
+    {
+        $this->playedCard = $card;
+    }
+
+    public function getPlayedCard():Card
+    {
+        return $this->playedCard;
     }
 
 }

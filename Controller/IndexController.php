@@ -4,8 +4,6 @@ require_once('../Service/PrintService.php');
 
 class IndexController
 {
-    private array $availableCards = [];
-    private Card $topCard;
     private CardService $cardService;
     private PrintService $printService;
 
@@ -14,9 +12,7 @@ class IndexController
         $this->printService = new PrintService();
 
         $players = $this->cardService->init();
-        $this->availableCards  = $this->cardService->getAvailableCards();
 
-        $this->setTopCard();
         $this->showPlayerCards($players);
         $this->startGame($players);
     }
@@ -37,14 +33,16 @@ class IndexController
             $this->printService->printEnter();
         }
 
-        $text = sprintf('Top card is: %s%s', $this->topCard->getValue(), $this->topCard->getIcon());
+        $text = sprintf('Top card is: %s%s', $this->cardService->getTopCard()->getValue(),
+                $this->cardService->getTopCard()->getIcon());
         $this->printService->printText($text);
         $this->printService->printEnter();
 
     }
 
-    public function printCard(Card $card, string $text = '')
+    public function printCard(Player $player, string $text = '')
     {
+        $card = $player->getPlayedCard();
         $text = sprintf("%s %s%s ", $text, $card->getValue(), $card->getIcon());
         $this->printService->printText($text);
         $this->printService->printEnter();
@@ -57,17 +55,19 @@ class IndexController
         while (true) {
             $count = 0;
             foreach ($players as $player) {
-                $hasTypeCard = $player->hasTypeCard($this->topCard);
-                $hasSameValueCard = $player->hasSameValueCard($this->topCard);
+                $hasTypeCardKey = $player->hasTypeCard($this->cardService->getTopCard());
+                $hasSameValueCard = $player->hasSameValueCard($this->cardService->getTopCard());
 
-                if (isset($hasTypeCard)) {
-                    $this->playCard($player, $hasTypeCard);
+                if (isset($hasTypeCardKey)) {
+                    $this->cardService->playCard($player, $hasTypeCardKey);
+                    $this->printPlayedCard($player);
                 } else if (isset($hasSameValueCard)) {
-                    $card = $player->getCard($hasSameValueCard);
-                    $this->playCard($player, $hasSameValueCard);
+                    $card = $this->cardService->playCard($player, $hasSameValueCard);
+                    $this->printPlayedCard($player);
                     $this->printTopCardChanged($card);
-                } else if (!empty($this->availableCards)) {
-                    $this->playerAddCard($player);
+                } else if (!empty($this->cardService->getAvailableCards())) {
+                    $this->cardService->playerAddCard($player);
+                    $this->printPlayerTakesNewCard($player);
                 } else {
                     $count++;
                 }
@@ -86,28 +86,10 @@ class IndexController
 
     }
 
-    public function setTopCard()
-    {
-        $randId = array_rand($this->availableCards);
-        $startCard = $this->availableCards[$randId];
-        $this->topCard = $startCard;
-        $this->removeAvailableCard($randId);
-    }
-
-    public function printPlayedCard(Player $player, $key)
+    public function printPlayedCard(Player $player)
     {
         $text = sprintf("%s plays", $player->getName());
-        $this->printCard($player->getCard($key), $text);
-        $player->removeCard($key);
-    }
-
-    public function playerAddCard(Player $player)
-    {
-        $randomId = array_rand($this->availableCards);
-        $player->addCard($this->availableCards[$randomId]);
-        $text = sprintf('Player %s takes new card..', $player->getName());
-        $this->printCard($this->availableCards[$randomId], $text);
-        $this->removeAvailableCard($randomId);
+        $this->printCard($player, $text);
     }
 
 
@@ -127,16 +109,11 @@ class IndexController
         $this->printService->printText($text);
     }
 
-    public function removeAvailableCard(int $id)
+    public function printPlayerTakesNewCard(Player $player)
     {
-        unset($this->availableCards[$id]);
-    }
-
-    public function playCard(Player $player, int $key)
-    {
-        $card = $player->getCard($key);
-        $this->topCard = $card;
-        $this->printPlayedCard($player, $key);
+        $text = sprintf('Player %s takes new card..', $player->getName());
+        $this->printService->printText($text);
+        $this->printService->printEnter();
     }
 
 }

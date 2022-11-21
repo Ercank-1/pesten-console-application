@@ -4,9 +4,11 @@ require_once('../Model/Card.php');
 
 class CardService
 {
-    public array $players = ['Alice', 'Bob', 'Carol', 'Eve'];
-    public array $playerModels = [];
-    public array $cards = [];
+    private array $players = ['Alice', 'Bob', 'Carol', 'Eve'];
+    private array $playerModels = [];
+    private array $cards = [];
+    private array $availableCards = [];
+    private Card $topCard;
 
     public function init():array
     {
@@ -14,6 +16,9 @@ class CardService
         $players = $this->generatePlayers();
         $players = $this->setCards($players, $cards);
         $this->playerModels = $players;
+
+        $this->availableCards  = $this->cards;
+        $this->setTopCard();
         return $players;
     }
 
@@ -64,12 +69,47 @@ class CardService
 
     public function getAvailableCards():array
     {
-        return $this->cards;
+        return $this->availableCards;
     }
 
     /** @return Player[] */
     public function getPlayers():array
     {
         return $this->playerModels;
+    }
+
+    public function playerAddCard(Player $player)
+    {
+        $randomId = array_rand($this->availableCards);
+        $player->addCard($this->availableCards[$randomId]);
+        $this->availableCards[$randomId];
+        $this->removeAvailableCard($randomId);
+    }
+
+    public function removeAvailableCard(int $id)
+    {
+        unset($this->availableCards[$id]);
+    }
+
+    public function setTopCard()
+    {
+        $randId = array_rand($this->availableCards);
+        $startCard = $this->availableCards[$randId];
+        $this->topCard = $startCard;
+        $this->removeAvailableCard($randId);
+    }
+
+    public function playCard(Player $player, int $key):Card
+    {
+        $card = $player->getCard($key);
+        $this->topCard = $card;
+        $player->setPlayedCard($card);
+        $player->removeCard($key);
+        return $card;
+    }
+
+    public function getTopCard():Card
+    {
+        return $this->topCard;
     }
 }
