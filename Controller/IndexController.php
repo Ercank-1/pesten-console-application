@@ -11,7 +11,8 @@ class IndexController
         $this->cardService = new CardService();
         $this->printService = new PrintService();
 
-        $players = $this->cardService->init();
+        $players = ['Alice', 'Bob', 'Carol', 'Eve'];
+        $players = $this->cardService->init($players);
 
         $this->showPlayerCards($players);
         $this->startGame($players);
@@ -44,6 +45,7 @@ class IndexController
     {
         $card = $player->getPlayedCard();
         $text = sprintf("%s %s%s ", $text, $card->getValue(), $card->getIcon());
+
         $this->printService->printText($text);
         $this->printService->printEnter();
     }
@@ -55,31 +57,29 @@ class IndexController
         while (true) {
             $count = 0;
             foreach ($players as $player) {
-                $hasTypeCardKey = $player->hasTypeCard($this->cardService->getTopCard());
-                $hasSameValueCard = $player->hasSameValueCard($this->cardService->getTopCard());
-
-                if (isset($hasTypeCardKey)) {
-                    $this->cardService->playCard($player, $hasTypeCardKey);
-                    $this->printPlayedCard($player);
-                } else if (isset($hasSameValueCard)) {
-                    $card = $this->cardService->playCard($player, $hasSameValueCard);
-                    $this->printPlayedCard($player);
-                    $this->printTopCardChanged($card);
-                } else if (!empty($this->cardService->getAvailableCards())) {
-                    $this->cardService->playerAddCard($player);
-                    $this->printPlayerTakesNewCard($player);
-                } else {
-                    $count++;
-                }
-
-                if (!$player->hasCards()) {
-                    $this->playerWin($player);
-                    exit;
-                }
-
-                if ($count == count($this->cardService->getPlayers())) {
-                    $this->printService->printText('Nobody can play anymore!');
-                    exit;
+                $result = $this->cardService->playGame($player);
+                switch ($result->getGameResult()) {
+                    case GameResultCase::Played:
+                        $this->printPlayedCard($player);
+                        break;
+                    case GameResultCase::TakesCard:
+                        $this->printPlayerTakesNewCard($player);
+                        break;
+                    case GameResultCase::TopCardTypeChanged:
+                        $this->printPlayedCard($player);
+                        $this->printTopCardChanged($player);
+                        break;
+                    case GameResultCase::NotPLAYED:
+                        $count++;
+                        break;
+                    case GameResultCase::Winner:
+                        $this->playerWin($player);
+                        exit;
+                    case GameResultCase::NobodyCanPlay:
+                        $this->printService->printText('Nobody can play anymore!');
+                        $this->printService->printEnter();
+                        $this->showPlayerCards($this->cardService->getPlayers());
+                        exit;
                 }
             }
         }
@@ -93,9 +93,9 @@ class IndexController
     }
 
 
-    public function printTopCardChanged(Card $card)
+    public function printTopCardChanged(Player $player)
     {
-        $text =  sprintf('Top card type changed to %s%s', $card->getValue(), $card->getIcon());
+        $text =  sprintf('Top card type changed to %s%s', $player->getPlayedCard()->getValue(), $player->getPlayedCard()->getIcon());
         $this->printService->printText($text);
         $this->printService->printEnter();
     }
@@ -104,7 +104,9 @@ class IndexController
     {
         $this->printService->printText('DONE!');
         $this->printService->printEnter();
+
         $this->showPlayerCards($this->cardService->getPlayers());
+
         $text =  sprintf('Player %s win the game!', $player->getName());
         $this->printService->printText($text);
     }

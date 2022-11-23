@@ -1,17 +1,22 @@
 <?php
 require_once('../Model/Player.php');
 require_once('../Model/Card.php');
+require_once('../Model/Result.php');
+require_once('../Model/GameResultCase.php');
 
 class CardService
 {
-    private array $players = ['Alice', 'Bob', 'Carol', 'Eve'];
+    private array $players = [];
     private array $playerModels = [];
     private array $cards = [];
     private array $availableCards = [];
     private Card $topCard;
+    private int $countNotPlayed = 0;
 
-    public function init():array
+    public function init(array $players):array
     {
+        $this->players = $players;
+
         $cards = $this->generateCards();
         $players = $this->generatePlayers();
         $players = $this->setCards($players, $cards);
@@ -82,7 +87,6 @@ class CardService
     {
         $randomId = array_rand($this->availableCards);
         $player->addCard($this->availableCards[$randomId]);
-        $this->availableCards[$randomId];
         $this->removeAvailableCard($randomId);
     }
 
@@ -99,17 +103,47 @@ class CardService
         $this->removeAvailableCard($randId);
     }
 
-    public function playCard(Player $player, int $key):Card
+    public function playCard(Player $player, int $key)
     {
         $card = $player->getCard($key);
         $this->topCard = $card;
         $player->setPlayedCard($card);
         $player->removeCard($key);
-        return $card;
     }
 
     public function getTopCard():Card
     {
         return $this->topCard;
+    }
+
+    public function playGame(Player $player):Result
+    {
+        $hasTypeCardKey = $player->hasTypeCard($this->getTopCard());
+        $hasSameValueCard = $player->hasSameValueCard($this->getTopCard());
+
+        if (isset($hasTypeCardKey)) {
+            $this->countNotPlayed = 0;
+            $this->playCard($player, $hasTypeCardKey);
+            return new Result(GameResultCase::Played, $player);
+        } else if (isset($hasSameValueCard)) {
+            $this->countNotPlayed = 0;
+            $this->playCard($player, $hasSameValueCard);
+            return new Result(GameResultCase::TopCardTypeChanged, $player);
+        } else if (!empty($this->getAvailableCards())) {
+            $this->playerAddCard($player);
+            return new Result(GameResultCase::TakesCard, $player);
+        }
+
+        if (!$player->hasCards()) {
+            return new Result(GameResultCase::Winner, $player);
+        }
+
+        if ($this->countNotPlayed == count($this->players)) {
+            return new Result(GameResultCase::NobodyCanPlay, $player);
+        } else {
+            $this->countNotPlayed++;
+        }
+
+        return new Result(GameResultCase::NotPLAYED, $player);
     }
 }
